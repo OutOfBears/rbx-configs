@@ -1,7 +1,7 @@
 arg1 := $(word 2, $(MAKECMDGOALS))
 
-.PHONY: all none release $(arg1)
-.SILENT: none release $(arg1)
+.PHONY: all none release delete-release $(arg1)
+.SILENT: none release delete-release $(arg1)
 
 none:
 	echo Please specify a target: build

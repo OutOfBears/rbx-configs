@@ -7,6 +7,7 @@ description = "A CLI tool for managing Roblox universe configurations and experi
 license = "MIT"
 repository = "https://github.com/outofbears/rbx-configs"
 readme = "README.md"
+include = ["**/*.rs"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

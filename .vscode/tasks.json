@@ -8,6 +8,14 @@
       "windows": {
         "command": "make release ${input:versionId}"
       }
+    },
+    {
+      "label": "Delete a release",
+      "type": "shell",
+      "command": "make delete-release ${input:versionId}",
+      "windows": {
+        "command": "make delete-release ${input:versionId}"
+      }
     }
   ],
   "inputs": [
