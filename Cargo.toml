@@ -1,0 +1,23 @@
+[package]
+name = "rbx-config"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.147"
+serde_derive = "1.0.228"
+nestify = "0.3.3"
+async-trait = "0.1.89"
+http = "1"
+log = "0.4.27"
+env_logger = "0.11.8"
+clap = { version = "4.5.53", features = ["derive"] }
+lazy_static = "1.5.0"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "gzip", "deflate", "brotli"] }
+reqwest-middleware = { version = "0.4.2", features = ["json"] }
+reqwest-retry = "0.8.0"
+dotenv = "0.15.0"
+rbx_cookie = "0.1.5"
+anyhow = "1.0.0"
