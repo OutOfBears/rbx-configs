@@ -1354,7 +1354,6 @@ dependencies = [
 name = "rbx-config"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "clap 4.5.57",
  "dotenv",
@@ -1368,7 +1367,6 @@ dependencies = [
  "reqwest-middleware",
  "reqwest-retry",
  "serde",
- "serde_derive",
  "serde_json",
  "tokio",
 ]

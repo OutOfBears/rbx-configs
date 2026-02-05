@@ -2,11 +2,15 @@
 name = "rbx-config"
 version = "0.1.0"
 edition = "2024"
+authors = ["Jack Fox <jack@infernal.io>"]
+description = "A CLI tool for managing Roblox universe configurations and experiments."
+license = "MIT"
+repository = "https://github.com/outofbears/rbx-configs"
+readme = "README.md"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.147"
-serde_derive = "1.0.228"
 nestify = "0.3.3"
 async-trait = "0.1.89"
 http = "1"
@@ -20,4 +24,3 @@ reqwest-middleware = { version = "0.4.2", features = ["json"] }
 reqwest-retry = "0.8.0"
 dotenv = "0.15.0"
 rbx_cookie = "0.1.5"
-anyhow = "1.0.0"
