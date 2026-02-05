@@ -78,7 +78,7 @@ pub async fn publish_draft(universe_id: u64) -> Result<()> {
     Ok(())
 }
 
-pub async fn update_flag(universe_id: u64, flag: Flag) -> Result<()> {
+pub async fn update_flag(universe_id: u64, flag: Flag) -> Result<String> {
     let resp: UploadFlagResponse = API_CLIENT
         .put(&format!(
             "https://apis.roblox.com/universe-configs-web-api/v1/draft/universes/{}",
@@ -102,10 +102,10 @@ pub async fn update_flag(universe_id: u64, flag: Flag) -> Result<()> {
         .into());
     }
 
-    Ok(())
+    Ok(result.data.unwrap().draft_hash)
 }
 
-pub async fn upload_flag(universe_id: u64, flag: Flag) -> Result<()> {
+pub async fn upload_flag(universe_id: u64, flag: Flag) -> Result<String> {
     let resp: UploadFlagResponse = API_CLIENT
         .post(&format!(
             "https://apis.roblox.com/universe-configs-web-api/v1/draft/universes/{}",
@@ -129,5 +129,39 @@ pub async fn upload_flag(universe_id: u64, flag: Flag) -> Result<()> {
         .into());
     }
 
-    Ok(())
+    Ok(result.data.unwrap().draft_hash)
+}
+
+pub async fn delete_flag(universe_id: u64, id: String) -> Result<String> {
+    let resp: UploadFlagResponse = API_CLIENT
+        .put(&format!(
+            "https://apis.roblox.com/universe-configs-web-api/v1/draft/universes/{}",
+            universe_id
+        ))
+        .json(&json!({
+            "isDeleted": true,
+            "entry": json!({
+                "key": id,
+            })
+        }))
+        .send()
+        .await?
+        .error_for_status()?
+        .json()
+        .await?;
+
+    let result = resp
+        .create_config_result
+        .or(resp.update_config_result)
+        .unwrap();
+
+    if result.is_error {
+        return Err(format!(
+            "Failed to delete flag: {}",
+            result.error.unwrap().error_code
+        )
+        .into());
+    }
+
+    Ok(result.data.unwrap().draft_hash)
 }

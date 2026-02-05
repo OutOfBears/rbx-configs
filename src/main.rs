@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, io::Write};
 
 use clap::{Parser, Subcommand};
 use log::{error, info};
@@ -31,6 +31,8 @@ nest! {
                 Download,
                 /// Uploads all the configs/experiments to the universe
                 Upload,
+                /// Deletes all configs/experiments from the universe. USE WITH CAUTION. This cannot be undone and may have unintended consequences if the universe relies on any of the configs.
+                Purge,
                 /// Discard / Publish changes to the universe config
                 #>[derive(Parser, Debug)]
                 Draft(
@@ -128,6 +130,35 @@ async fn main() {
             std::fs::write(file, serde_json::to_string_pretty(&entries).unwrap()).unwrap();
             info!("Config downloaded successfully.");
         }
+        Commands::Purge => {
+            info!("Puring all configs from universe: {}", args.universe_id);
+
+            info!("Fetching existing configs...");
+            let flags = api::configs::get_config(args.universe_id).await.unwrap();
+            let mut count = 0;
+
+            for flag in flags.entries {
+                if count > 40 {
+                    info!(
+                        "Reached 50 deletions, publishing staged changes to avoid draft expiration..."
+                    );
+
+                    api::configs::publish_draft(args.universe_id).await.unwrap();
+                    count = 0;
+                }
+
+                info!("Deleting flag '{}'", flag.entry.key);
+
+                count += 1;
+
+                match api::configs::delete_flag(args.universe_id, flag.clone().entry.key).await {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("Failed to delete flag '{}': {}", flag.entry.key, e)
+                    }
+                }
+            }
+        }
         Commands::Upload => {
             let file = args.file.unwrap_or_else(|| "config.json".to_string());
             let local_flags = match std::fs::read_to_string(file) {
@@ -156,13 +187,11 @@ async fn main() {
             let _ = api::configs::discard_draft(args.universe_id).await;
 
             info!("Fetching existing configs...");
-            let existing = api::configs::get_config(args.universe_id).await.unwrap();
+            let flags = api::configs::get_config(args.universe_id).await.unwrap();
 
-            let flag_exists =
-                |flag: &Flag| existing.entries.iter().any(|e| e.entry.key == flag.key);
-
+            let flag_exists = |flag: &Flag| flags.entries.iter().any(|e| e.entry.key == flag.key);
             let has_flag = |flag: &Flag| {
-                existing
+                flags
                     .entries
                     .iter()
                     .any(|e| e.entry.key == flag.key && e.entry.entry_value == flag.entry_value)
@@ -196,7 +225,20 @@ async fn main() {
                     .join(", ")
             );
 
+            let mut count = 0;
+
             for flag in update_flags {
+                if count >= 40 {
+                    info!(
+                        "Reached 50 uploads, publishing staged changes to avoid draft expiration..."
+                    );
+
+                    api::configs::publish_draft(args.universe_id).await.unwrap();
+                    count = 0;
+                }
+
+                info!("Uploading flag '{}'", flag.key);
+
                 let resp = if flag_exists(&flag) {
                     api::configs::update_flag(args.universe_id, flag.clone()).await
                 } else {
@@ -204,9 +246,13 @@ async fn main() {
                 };
 
                 match resp {
-                    Ok(_) => info!("Uploaded flag '{}'", flag.key),
-                    Err(e) => error!("Failed to upload flag '{}': {}", flag.key, e),
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!("Failed to upload flag '{}': {}", flag.key, e)
+                    }
                 }
+
+                count += 1;
             }
 
             info!("Publishing staged changes...");

@@ -4,6 +4,16 @@ use serde::{Deserialize, Serialize};
 nest! {
     #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]*
     #[serde(rename_all = "camelCase")]*
+    pub struct ErrorResponse {
+        pub code: u32,
+        pub message: String,
+        pub details: Option<Vec<serde_json::Value>>,
+    }
+}
+
+nest! {
+    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]*
+    #[serde(rename_all = "camelCase")]*
     pub struct GetConfigResponse {
         pub config_version: String,
         pub entries: Vec<pub struct ConfigEntry {
@@ -13,6 +23,22 @@ nest! {
                 pub key: String,
                 pub description: Option<String>,
                 pub entry_value: serde_json::Value,
+            }
+        }>,
+    }
+}
+
+nest! {
+    #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]*
+    #[serde(rename_all = "camelCase")]*
+    pub struct GetDraftConfigResponse {
+        pub draft_hash: String,
+        pub entries: Vec<pub struct DraftConfigEntry {
+            pub current_value: Option<bool>,
+            pub is_publishing: Option<bool>,
+            pub last_modified_time: Option<String>,
+            pub override_entry: pub struct OverrideEntry {
+                pub entry: Flag
             }
         }>,
     }

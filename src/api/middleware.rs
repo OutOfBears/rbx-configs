@@ -1,8 +1,14 @@
 use http::HeaderValue;
-use reqwest::{Request, Response, StatusCode};
+use log::{debug, info, warn};
+use reqwest::{
+    Request, Response, StatusCode,
+    cookie::{self, CookieStore},
+};
 use reqwest_middleware::{Middleware, Next, Result};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
+
+use crate::api::{API_CLIENT, model::ErrorResponse};
 
 #[derive(Debug, Default)]
 struct RateState {
@@ -19,7 +25,7 @@ pub struct RobloxRateLimitMiddleware {
 
 #[derive(Clone, Debug)]
 pub struct RobloxAuthMiddleware {
-    cookie: Arc<Mutex<Option<String>>>,
+    seen_etag: Arc<Mutex<bool>>,
     csrf_token: Arc<Mutex<Option<String>>>,
 }
 
@@ -35,25 +41,6 @@ impl RobloxRateLimitMiddleware {
     pub fn with_max_429_retries(mut self, n: usize) -> Self {
         self.max_429_retries = n;
         self
-    }
-
-    async fn preflight_wait(&self) {
-        loop {
-            let wait = {
-                let st = self.state.lock().await;
-                match (st.remaining, st.reset_after_secs) {
-                    (Some(0), Some(secs)) if secs > 0 => Some(Duration::from_secs(secs)),
-                    _ => None,
-                }
-            };
-
-            if let Some(d) = wait {
-                tokio::time::sleep(d + Duration::from_millis(self.cushion_ms)).await;
-                continue;
-            }
-
-            break;
-        }
     }
 
     async fn ingest_headers(&self, resp: &Response) {
@@ -99,19 +86,24 @@ impl RobloxRateLimitMiddleware {
 impl RobloxAuthMiddleware {
     pub fn new() -> Self {
         Self {
-            cookie: super::COOKIE.clone(),
+            seen_etag: Arc::new(Mutex::new(false)),
             csrf_token: Arc::new(Mutex::new(None)),
         }
     }
 
-    pub async fn get_cookie(&self) -> Option<String> {
-        let cookie_lock = self.cookie.lock().await;
-        cookie_lock.clone()
+    async fn set_seen(&self, seen: bool) {
+        let mut lock = self.seen_etag.lock().await;
+        *lock = seen;
+    }
+
+    async fn has_seen(&self) -> bool {
+        let lock = self.seen_etag.lock().await;
+        (*lock).clone()
     }
 
     pub async fn get_csrf_token(&self) -> Option<String> {
         let token_lock = self.csrf_token.lock().await;
-        token_lock.clone()
+        (*token_lock).clone()
     }
 
     pub async fn set_csrf_token(&self, token: String) {
@@ -128,35 +120,63 @@ impl Middleware for RobloxAuthMiddleware {
         extensions: &mut http::Extensions,
         next: Next<'_>,
     ) -> Result<Response> {
-        if let Some(cookie) = self.get_cookie().await {
-            req.headers_mut().insert(
-                "Cookie",
-                HeaderValue::from_str(&format!(".ROBLOSECURITY={}", cookie)).unwrap(),
-            );
-        }
-
         if let Some(csrf_token) = self.get_csrf_token().await {
             req.headers_mut()
                 .insert("x-csrf-token", HeaderValue::from_str(&csrf_token).unwrap());
+        }
+
+        if let Some(cookie_header) = super::JAR.cookies(&req.url()) {
+            req.headers_mut().insert("cookie", cookie_header);
         }
 
         let resp = next
             .clone()
             .run(req.try_clone().unwrap(), extensions)
             .await?;
+
         let mut did_update_csrf = false;
 
         if let Some(new_token) = resp.headers().get("x-csrf-token") {
             if let Ok(token_str) = new_token.to_str() {
                 self.set_csrf_token(token_str.to_string()).await;
                 did_update_csrf = true;
+                debug!("Updated CSRF token from response headers");
             }
         }
 
         if resp.status() == StatusCode::FORBIDDEN {
             if did_update_csrf {
+                debug!("Retrying request with new CSRF token...");
                 return Self::handle(self, req, extensions, next).await;
             }
+        }
+
+        if resp.status() == StatusCode::BAD_REQUEST {
+            let status = resp.status();
+            let body: ErrorResponse = resp.json().await?;
+
+            if body.message == "ETagMismatch" {
+                let seen = self.has_seen().await;
+                if !seen {
+                    self.set_seen(true).await;
+                    warn!("Waiting for roblox etag to propagate...");
+                }
+
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                let resp = Self::handle(self, req, extensions, next).await;
+
+                if !seen {
+                    self.set_seen(false).await;
+                }
+
+                return resp;
+            };
+
+            return Err(reqwest_middleware::Error::Middleware(anyhow::anyhow!(
+                "Request failed with status {}: {}",
+                status,
+                body.message
+            )));
         }
 
         Ok(resp)
@@ -171,14 +191,15 @@ impl Middleware for RobloxRateLimitMiddleware {
         extensions: &mut http::Extensions,
         next: Next<'_>,
     ) -> Result<Response> {
-        self.preflight_wait().await;
-
         let mut req = req;
         for attempt in 0..=self.max_429_retries {
             let req_clone = req.try_clone();
+
             let resp = next.clone().run(req, extensions).await?;
 
-            self.ingest_headers(&resp).await;
+            if !resp.status().is_success() {
+                debug!("request failed with status {}", resp.status());
+            }
 
             if resp.status() != StatusCode::TOO_MANY_REQUESTS {
                 return Ok(resp);
@@ -189,6 +210,13 @@ impl Middleware for RobloxRateLimitMiddleware {
             }
 
             let wait = Self::retry_wait_from_headers(&resp);
+
+            warn!(
+                "Rate limited on attempt {}, retrying after {} seconds...",
+                attempt + 1,
+                wait.as_secs()
+            );
+
             tokio::time::sleep(wait + Duration::from_millis(self.cushion_ms)).await;
 
             if let Some(cloned) = req_clone {
