@@ -1,5 +1,5 @@
 [package]
-name = "rbx-config"
+name = "rbx-configs"
 version = "0.1.0"
 edition = "2024"
 authors = ["Jack Fox <jack@infernal.io>"]
