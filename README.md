@@ -19,7 +19,7 @@
 
 <br />
 
-`rbx-config` is a lightweight CLI for downloading, editing, and publishing Roblox Universe Configs (feature flags/experiments) via the official Universe Configs Web API. It helps teams keep configs in version control, batch-update flags safely, and manage drafts.
+`rbx-configs` is a lightweight CLI for downloading, editing, and publishing Roblox Universe Configs (feature flags/experiments) via the official Universe Configs Web API. It helps teams keep configs in version control, batch-update flags safely, and manage drafts.
 
 
 
@@ -34,7 +34,7 @@
 If the crate is published to crates.io, you can install with:
 
 ```bash
-cargo install rbx-config
+cargo install rbx-configs
 ```
 
 You need Rust (stable) and Cargo.
@@ -43,14 +43,14 @@ You need Rust (stable) and Cargo.
 
 ```bash
 cargo build --release
-# Binary at target/release/rbx-config
+# Binary at target/release/rbx-configs
 ```
 
 ## 🔐 Authentication
 
-rbx-config calls Roblox APIs that require the `.ROBLOSECURITY` cookie.
+rbx-configs calls Roblox APIs that require the `.ROBLOSECURITY` cookie.
 
-- Preferred: if `RBX_COOKIE` is not set, rbx-config will attempt to read your Roblox cookie via the `rbx_cookie` helper.
+- Preferred: if `RBX_COOKIE` is not set, rbx-configs will attempt to read your Roblox cookie via the `rbx_cookie` helper.
 - Fallback: set the `RBX_COOKIE` environment variable to your cookie value.
 
 Windows PowerShell example:
@@ -70,7 +70,7 @@ Place `-u` and `-f` before the subcommand (e.g., `download`, `upload`, `draft`).
 Export the current universe configs to a local file.
 
 ```bash
-rbx-config -u 123456 -f config.json download
+rbx-configs -u 123456 -f config.json download
 ```
 
 Output file format:
@@ -93,7 +93,7 @@ Output file format:
 Read a local JSON and apply only changes (new or updated flags). Existing flags with identical values are ignored.
 
 ```bash
-rbx-config -u 123456 -f config.json upload
+rbx-configs -u 123456 -f config.json upload
 ```
 
 ### 🗂️ Manage drafts
@@ -102,10 +102,10 @@ Discard or publish staged changes explicitly.
 
 ```bash
 # Discard staged changes
-rbx-config -u 123456 draft discard
+rbx-configs -u 123456 draft discard
 
 # Publish staged changes
-rbx-config -u 123456 draft publish
+rbx-configs -u 123456 draft publish
 ```
 
 ## 🧩 Configuration file schema
@@ -131,7 +131,7 @@ Example with nested value:
 - Set `RUST_LOG` to control verbosity (defaults to `rbx_config=debug` in debug builds, `rbx_config=info` in release):
 
 ```bash
-RUST_LOG=rbx_config=debug rbx-config -u 123456 download
+RUST_LOG=rbx_config=debug rbx-configs -u 123456 download
 ```
 
 - Optional: a `.env` file is loaded if present for `RBX_COOKIE` or other environment variables.
@@ -140,7 +140,7 @@ RUST_LOG=rbx_config=debug rbx-config -u 123456 download
 
 - **403 Forbidden / CSRF errors**: Ensure `RBX_COOKIE` is valid and not expired; try re‑setting it.
 - **Rate limit**: The client backs off automatically; you may need to wait.
-- **Invalid config JSON**: rbx-config will log parse errors—verify your file conforms to the schema above.
+- **Invalid config JSON**: rbx-configs will log parse errors—verify your file conforms to the schema above.
 
 ## 💖 Contribution
 
