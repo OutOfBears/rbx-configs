@@ -10,4 +10,8 @@ release:
 	git tag -a $(arg1) -m "Release $(arg1)"
 	git push origin $(arg1)
 
+delete-release:
+	git tag -d $(arg1)
+	git push --delete origin $(arg1)
+
 all: none
