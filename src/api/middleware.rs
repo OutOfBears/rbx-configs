@@ -1,24 +1,14 @@
 use http::HeaderValue;
-use log::{debug, info, warn};
-use reqwest::{
-    Request, Response, StatusCode,
-    cookie::{self, CookieStore},
-};
+use log::{debug, warn};
+use reqwest::{Request, Response, StatusCode, cookie::CookieStore};
 use reqwest_middleware::{Middleware, Next, Result};
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
-use crate::api::{API_CLIENT, model::ErrorResponse};
-
-#[derive(Debug, Default)]
-struct RateState {
-    remaining: Option<u64>,
-    reset_after_secs: Option<u64>,
-}
+use crate::api::model::ErrorResponse;
 
 #[derive(Clone, Debug)]
 pub struct RobloxRateLimitMiddleware {
-    state: Arc<Mutex<RateState>>,
     max_429_retries: usize,
     cushion_ms: u64,
 }
@@ -32,7 +22,6 @@ pub struct RobloxAuthMiddleware {
 impl RobloxRateLimitMiddleware {
     pub fn new() -> Self {
         Self {
-            state: Arc::new(Mutex::new(RateState::default())),
             max_429_retries: 5,
             cushion_ms: 75,
         }
@@ -41,28 +30,6 @@ impl RobloxRateLimitMiddleware {
     pub fn with_max_429_retries(mut self, n: usize) -> Self {
         self.max_429_retries = n;
         self
-    }
-
-    async fn ingest_headers(&self, resp: &Response) {
-        let remaining = resp
-            .headers()
-            .get("x-ratelimit-remaining")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.trim().parse::<u64>().ok());
-
-        let reset_secs = resp
-            .headers()
-            .get("x-ratelimit-reset")
-            .and_then(|v| v.to_str().ok())
-            .and_then(|s| s.trim().parse::<u64>().ok());
-
-        let mut st = self.state.lock().await;
-        if remaining.is_some() {
-            st.remaining = remaining;
-        }
-        if reset_secs.is_some() {
-            st.reset_after_secs = reset_secs;
-        }
     }
 
     fn retry_wait_from_headers(resp: &Response) -> Duration {

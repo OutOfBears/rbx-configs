@@ -1,6 +1,6 @@
 [package]
 name = "rbx-configs"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Jack Fox <jack@infernal.io>"]
 description = "A CLI tool for managing Roblox universe configurations and experiments."

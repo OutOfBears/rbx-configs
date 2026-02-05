@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Write};
+use std::collections::HashMap;
 
 use clap::{Parser, Subcommand};
 use log::{error, info};
@@ -158,6 +158,11 @@ async fn main() {
                     }
                 }
             }
+
+            info!("Publishing final staged changes...");
+            api::configs::publish_draft(args.universe_id).await.unwrap();
+
+            info!("Purge complete.");
         }
         Commands::Upload => {
             let file = args.file.unwrap_or_else(|| "config.json".to_string());
